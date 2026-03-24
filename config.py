@@ -6,11 +6,11 @@ SCAN_INTERVAL_SECONDS = 60
 # =========================
 # 장 시간 설정
 # =========================
-MARKET_START_HOUR = 9
+MARKET_START_HOUR = 0
 MARKET_START_MINUTE = 0
 
-MARKET_END_HOUR = 15
-MARKET_END_MINUTE = 20
+MARKET_END_HOUR = 23
+MARKET_END_MINUTE = 59
 
 # =========================
 # 파일 설정
@@ -38,3 +38,15 @@ MANUAL_STOCKS = {
     "035420.KS": "NAVER",
     "035720.KS": "카카오"
 }
+
+# =========================
+# 한국투자 API 설정
+# =========================
+APP_KEY = ""
+APP_SECRET = ""
+
+# 모의투자 / 실전투자 구분
+IS_PAPER_TRADING = True
+
+# 후보군 설정
+TOP_N = 30

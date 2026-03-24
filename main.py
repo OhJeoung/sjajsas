@@ -3,6 +3,7 @@ from datetime import datetime, time as dt_time
 
 import pandas as pd
 import yfinance as yf
+from folder2.paper_engine import record_paper_entry
 
 from config import (
     MARKET_START_HOUR,
@@ -127,6 +128,8 @@ def run_scanner():
                         "20봉평균거래량": round(avg_volume_20, 2),
                         "판단": signal
                     })
+                    
+                    record_paper_entry(ticker, name, current_price, signal)
 
         except Exception as e:
             log(f"종목 처리 중 에러 발생: {name} ({ticker}) / {e}")
