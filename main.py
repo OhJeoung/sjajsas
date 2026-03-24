@@ -3,7 +3,7 @@ from datetime import datetime, time as dt_time
 
 import pandas as pd
 import yfinance as yf
-from folder2.paper_engine import record_paper_entry
+from folder2.paper_engine import record_paper_entry, update_paper_trade_results
 
 from config import (
     MARKET_START_HOUR,
@@ -129,7 +129,7 @@ def run_scanner():
                         "판단": signal
                     })
                     
-                    record_paper_entry(ticker, name, current_price, signal)
+                record_paper_entry(ticker, name, current_price, signal)
 
         except Exception as e:
             log(f"종목 처리 중 에러 발생: {name} ({ticker}) / {e}")
@@ -167,6 +167,9 @@ def run_scanner():
 while True:
     try:
         if is_market_open():
+            log("장 시간 확인됨 - 모의트레이드 결과 업데이트")
+            update_paper_trade_results()
+
             log("장 시간 확인됨 - 스캔 실행")
             run_scanner()
             log(f"다음 스캔까지 {SCAN_INTERVAL_SECONDS}초 대기")

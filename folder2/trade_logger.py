@@ -11,3 +11,14 @@ def save_paper_trade(trade_data, filename="paper_trades.csv"):
         pass
 
     df.to_csv(filename, index=False, encoding="utf-8-sig")
+
+
+def load_paper_trades(filename="paper_trades.csv"):
+    try:
+        return pd.read_csv(filename, encoding="utf-8-sig")
+    except FileNotFoundError:
+        return pd.DataFrame()
+
+
+def update_paper_trades(df, filename="paper_trades.csv"):
+    df.to_csv(filename, index=False, encoding="utf-8-sig")
