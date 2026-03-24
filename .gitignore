@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Logs
+*.log
+
+# CSV/data outputs
+buy_candidates.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Test / build artifacts
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/

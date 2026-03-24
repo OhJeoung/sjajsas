@@ -1,6 +1,0 @@
-.env
-__pycache__/
-*.pyc
-scanner.log
-paper_trades.csv
-buy_candidates.csv
