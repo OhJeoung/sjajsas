@@ -2,8 +2,6 @@ import time
 from datetime import datetime, time as dt_time
 
 import pandas as pd
-import yfinance as yf
-from folder2.paper_engine import record_paper_entry, update_paper_trade_results
 
 from config import (
     MARKET_START_HOUR,
@@ -15,8 +13,11 @@ from config import (
     LOG_FILE
 )
 from indicator import calculate_ma, calculate_rsi
-from strategy import check_signal
+from strategy import check_buy_signal
 from stock_source import get_candidate_stocks
+from folder1.kis_candle import get_minute_candle
+from folder1.kis_quote import get_current_price
+from folder2.paper_engine import record_paper_entry, update_paper_trade_results
 
 
 def log(message):
@@ -70,15 +71,12 @@ def run_scanner():
         log(f"종목 검사: {name} ({ticker})")
 
         try:
-            data = yf.download(
-                ticker,
-                period="5d",
-                interval="1m",
-                progress=False
-            )
+            stock_code = ticker.replace(".KS", "")
 
-            if data.empty:
-                log(f"데이터 없음: {name} ({ticker})")
+            data = get_minute_candle(stock_code)
+
+            if data is None or data.empty:
+                log(f"분봉 데이터 없음: {name} ({ticker})")
                 continue
 
             close_series = data["Close"].squeeze()
@@ -88,14 +86,15 @@ def run_scanner():
             ma20 = calculate_ma(close_series, 20)
             rsi = calculate_rsi(close_series, 14)
 
-            current_price = close_series.iloc[-1]
+            current_price = get_current_price(stock_code)
+
             current_ma5 = ma5.iloc[-1]
             current_ma20 = ma20.iloc[-1]
             current_rsi = rsi.iloc[-1]
             current_volume = volume_series.iloc[-1]
             avg_volume_20 = volume_series.rolling(20).mean().iloc[-1]
 
-            signal = check_signal(
+            signal = check_buy_signal(
                 current_ma5,
                 current_ma20,
                 current_rsi,
@@ -113,7 +112,7 @@ def run_scanner():
 
             if "매수 후보" in signal:
                 if is_duplicate(ticker):
-                    log(f"매수 후보이지만 중복으로 저장 생략: {name} ({ticker})")
+                    log(f"매수 후보이지만 buy_candidates 저장은 생략: {name} ({ticker})")
                 else:
                     log(f"매수 후보 발견: {name} ({ticker})")
                     buy_candidates.append({
@@ -128,7 +127,8 @@ def run_scanner():
                         "20봉평균거래량": round(avg_volume_20, 2),
                         "판단": signal
                     })
-                    
+
+                # 모의진입 기록은 buy_candidates 중복 여부와 별개로 남김
                 record_paper_entry(ticker, name, current_price, signal)
 
         except Exception as e:
