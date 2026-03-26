@@ -30,3 +30,10 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
+
+.env
+__pycache__/
+*.pyc
+scanner.log
+buy_candidates.csv
+paper_trades.csv
