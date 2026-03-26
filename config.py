@@ -9,8 +9,14 @@ load_dotenv()
 
 APP_KEY = os.getenv("APP_KEY")
 APP_SECRET = os.getenv("APP_SECRET")
+ACCOUNT_NO = os.getenv("ACCOUNT_NO")
+PRODUCT_CODE = os.getenv("PRODUCT_CODE", "01")
 KIS_ENV = os.getenv("KIS_ENV", "vps")
 
+if KIS_ENV == "prod":
+    BASE_URL = "https://openapi.koreainvestment.com:9443"
+else:
+    BASE_URL = "https://openapivts.koreainvestment.com:29443"
 
 # =========================
 # 스캐너 설정

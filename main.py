@@ -1,5 +1,6 @@
 import time
 from datetime import datetime, time as dt_time
+from pathlib import Path
 
 import pandas as pd
 
@@ -9,15 +10,25 @@ from config import (
     MARKET_END_HOUR,
     MARKET_END_MINUTE,
     SCAN_INTERVAL_SECONDS,
-    BUY_CANDIDATES_FILE,
-    LOG_FILE
 )
 from indicator import calculate_ma, calculate_rsi
 from strategy import check_buy_signal
 from stock_source import get_candidate_stocks
 from folder1.kis_candle import get_minute_candle
 from folder1.kis_quote import get_current_price
-from folder2.paper_engine import record_paper_entry, update_paper_trade_results
+from folder2.paper_engine import (
+    record_paper_entry,
+    update_paper_trade_results,
+    has_open_position,
+)
+from folder2.status_manager import update_status
+
+# =========================
+# 경로 고정
+# =========================
+BASE_DIR = Path(__file__).resolve().parent
+BUY_CANDIDATES_FILE = BASE_DIR / "buy_candidates.csv"
+LOG_FILE = BASE_DIR / "scanner.log"
 
 
 def log(message):
@@ -46,22 +57,40 @@ def is_duplicate(ticker):
         return False
     except Exception as e:
         log(f"is_duplicate 확인 중 에러: {e}")
+        update_status(last_error=f"is_duplicate 에러: {e}")
         return False
 
     return False
+
+
+def get_open_position_count(candidate_stocks):
+    count = 0
+
+    for ticker in candidate_stocks.keys():
+        try:
+            if has_open_position(ticker):
+                count += 1
+        except Exception:
+            continue
+
+    return count
 
 
 def is_market_open():
     now = datetime.now().time()
     market_start = dt_time(MARKET_START_HOUR, MARKET_START_MINUTE)
     market_end = dt_time(MARKET_END_HOUR, MARKET_END_MINUTE)
-
     return market_start <= now <= market_end
 
 
 def run_scanner():
     buy_candidates = []
     candidate_stocks = get_candidate_stocks()
+
+    update_status(
+        last_scan_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        open_positions=get_open_position_count(candidate_stocks),
+    )
 
     print("\n" + "=" * 40)
     log("스캔 시작")
@@ -99,7 +128,7 @@ def run_scanner():
                 current_ma20,
                 current_rsi,
                 current_volume,
-                avg_volume_20
+                avg_volume_20,
             )
 
             print("현재가:", current_price)
@@ -111,6 +140,8 @@ def run_scanner():
             print("판단:", signal)
 
             if "매수 후보" in signal:
+                update_status(last_signal=f"{name} 매수 후보")
+
                 if is_duplicate(ticker):
                     log(f"매수 후보이지만 buy_candidates 저장은 생략: {name} ({ticker})")
                 else:
@@ -125,14 +156,15 @@ def run_scanner():
                         "RSI": round(current_rsi, 2),
                         "현재거래량": int(current_volume),
                         "20봉평균거래량": round(avg_volume_20, 2),
-                        "판단": signal
+                        "판단": signal,
                     })
 
-                # 모의진입 기록은 buy_candidates 중복 여부와 별개로 남김
+                # 모의진입 기록은 중복 여부와 별개로 기록
                 record_paper_entry(ticker, name, current_price, signal)
 
         except Exception as e:
             log(f"종목 처리 중 에러 발생: {name} ({ticker}) / {e}")
+            update_status(last_error=f"{name}({ticker}) 처리 에러: {e}")
 
     print("\n" + "=" * 40)
     log("스캔 종료 - 매수 후보 정리")
@@ -154,35 +186,52 @@ def run_scanner():
             pass
         except Exception as e:
             log(f"기존 CSV 읽기 중 에러: {e}")
+            update_status(last_error=f"buy_candidates 읽기 에러: {e}")
 
         try:
             df.to_csv(BUY_CANDIDATES_FILE, index=False, encoding="utf-8-sig")
-            log(f"{BUY_CANDIDATES_FILE} 파일에 누적 저장 완료")
+            log(f"{BUY_CANDIDATES_FILE.name} 파일에 누적 저장 완료")
         except PermissionError:
-            log(f"{BUY_CANDIDATES_FILE} 저장 실패 - 파일이 열려 있는지 확인하세요")
+            log(f"{BUY_CANDIDATES_FILE.name} 저장 실패 - 파일이 열려 있는지 확인하세요")
+            update_status(last_error=f"{BUY_CANDIDATES_FILE.name} 저장 실패")
         except Exception as e:
             log(f"CSV 저장 중 에러 발생: {e}")
+            update_status(last_error=f"CSV 저장 에러: {e}")
 
+    update_status(
+        open_positions=get_open_position_count(candidate_stocks)
+    )
+
+
+update_status(engine_status="running", last_error="")
 
 while True:
     try:
         if is_market_open():
+            update_status(market_status="open")
+
             log("장 시간 확인됨 - 모의트레이드 결과 업데이트")
             update_paper_trade_results()
+
+            candidate_stocks = get_candidate_stocks()
+            update_status(open_positions=get_open_position_count(candidate_stocks))
 
             log("장 시간 확인됨 - 스캔 실행")
             run_scanner()
             log(f"다음 스캔까지 {SCAN_INTERVAL_SECONDS}초 대기")
         else:
+            update_status(market_status="closed")
             log(f"장 시간이 아님 - {SCAN_INTERVAL_SECONDS}초 후 다시 확인")
 
         time.sleep(SCAN_INTERVAL_SECONDS)
 
     except KeyboardInterrupt:
+        update_status(engine_status="stopped", last_error="")
         log("사용자가 프로그램을 종료했습니다.")
         break
 
     except Exception as e:
+        update_status(last_error=str(e))
         log(f"치명적 에러 발생: {e}")
         log("프로그램을 10초 후 재시도합니다.")
         time.sleep(10)
